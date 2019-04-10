@@ -5,6 +5,9 @@ import (
 	"strings"
 )
 
+// ValueBoundaryCount is number of times given boundary rune must repeat in order to signify value start/end
+const ValueBoundaryCount = 3
+
 // Param struct to hold parameter_name and parameter_value
 type Param struct {
 	Name  string
@@ -48,7 +51,7 @@ func GetParams(s string, paramSeps []rune, valDel rune, escape rune) (params []P
 		}
 	}
 	if len(trimmedTokens)%2 != 0 {
-		return nil, errors.New("invalid parameters: each name must have value")
+		return nil, errors.New("invalid parameters: error parsing input into parameter name/value pairs")
 	}
 
 	for x := 0; x < len(trimmedTokens); x += 2 {
@@ -61,49 +64,40 @@ func GetParams(s string, paramSeps []rune, valDel rune, escape rune) (params []P
 	return params, nil
 }
 
-func tokenizeParamString(s string, paramSeps []rune, longValueSep, escape rune) (tokens []string, err error) {
+func tokenizeParamString(s string, paramSeps []rune, valueBoundary, escape rune) (tokens []string, err error) {
 	var (
-		runes                 []rune
-		longSepCount          int
-		inEscape, inLongValue bool
+		runes             []rune
+		boundaryCount     int
+		inEscape, inValue bool
 	)
 	for _, r := range s {
 		switch {
-		default:
-			for x := 0; x < longSepCount; x++ {
-				runes = append(runes, longValueSep)
-			}
-			longSepCount = 0
-			runes = append(runes, r)
-			if inEscape {
-				inEscape = false
-			}
-		case r == longValueSep:
-			if inLongValue {
-				if longSepCount < 2 {
-					longSepCount++
-				} else {
-					tokens = append(tokens, string(runes))
-					runes = runes[:0]
-					inLongValue = false
-					longSepCount = 0
-				}
-			} else {
-				if longSepCount < 2 {
-					longSepCount++
-				} else {
-					inLongValue = true
-					longSepCount = 0
-				}
-			}
 		case r == escape:
-			if inLongValue {
+			if inValue {
 				runes = append(runes, r)
 			} else {
 				inEscape = true
 			}
+		case r == valueBoundary:
+			if inValue {
+				if boundaryCount < (ValueBoundaryCount - 1) {
+					boundaryCount++
+				} else {
+					tokens = append(tokens, string(runes))
+					runes = runes[:0]
+					inValue = false
+					boundaryCount = 0
+				}
+			} else {
+				if boundaryCount < (ValueBoundaryCount - 1) {
+					boundaryCount++
+				} else {
+					inValue = true
+					boundaryCount = 0
+				}
+			}
 		case strings.ContainsRune(string(paramSeps), r):
-			if inLongValue || inEscape {
+			if inValue || inEscape {
 				runes = append(runes, r)
 			} else if !inEscape {
 				if len(runes) > 0 {
@@ -111,11 +105,25 @@ func tokenizeParamString(s string, paramSeps []rune, longValueSep, escape rune) 
 					runes = runes[:0]
 				}
 			}
+			inEscape = false
+		default:
+			for x := 0; x < boundaryCount; x++ {
+				runes = append(runes, valueBoundary)
+			}
+			boundaryCount = 0
+			inEscape = false
+			runes = append(runes, r)
 		}
 	}
-	tokens = append(tokens, string(runes))
+
 	if inEscape {
 		err = errors.New("invalid terminal escape")
 	}
+	if inValue {
+		err = errors.New("invalid value termination")
+	}
+
+	tokens = append(tokens, string(runes))
+
 	return tokens, err
 }
