@@ -1,41 +1,42 @@
-package main
+package tokenize
 
 import (
 	"errors"
-	"flag"
-	"fmt"
-	"io/ioutil"
 	"strings"
 )
 
-type param struct {
+// Param struct to hold parameter_name and parameter_value
+type Param struct {
 	Name  string
 	Value string
 }
 
-func main() {
-	filename := flag.String("filename", "params.txt", "file containing params input string.")
-	flag.Parse()
+// func main() {
+// filename := flag.String("filename", "params.txt", "file containing params input string.")
+// flag.Parse()
 
-	f, err := ioutil.ReadFile(*filename)
-	s := string(f)
+// f, err := ioutil.ReadFile(*filename)
+// s := string(f)
 
-	stuff, err := tokenizeParamString(s, []rune{'|', '\n'}, '`', '\\')
-	if err != nil {
-		panic(err)
-	}
-	ps, err := parameterizeTokens(stuff)
-	if err != nil {
-		panic(err)
-	}
+// ps, err := GetParams(s, []rune{'|', '\n'}, '`', '\\')
+// if err != nil {
+// panic(err)
+// }
 
-	for _, p := range ps {
-		fmt.Printf("thing: %+v\n", p)
-	}
-}
+// for _, p := range ps {
+// fmt.Printf("thing: %+v\n", p)
+// }
+// }
 
-func parameterizeTokens(tokens []string) (params []param, err error) {
+// GetParams converts slice of strings to slice of Params
+func GetParams(s string, paramSeps []rune, valDel rune, escape rune) (params []Param, err error) {
 	var trimmedTokens []string
+
+	tokens, err := tokenizeParamString(s, paramSeps, valDel, escape)
+	if err != nil {
+		return nil, err
+	}
+
 	for _, t := range tokens {
 		if strings.Contains(t, "\n") {
 			trimmedTokens = append(trimmedTokens, t)
@@ -53,7 +54,7 @@ func parameterizeTokens(tokens []string) (params []param, err error) {
 	for x := 0; x < len(trimmedTokens); x += 2 {
 		pname := trimmedTokens[x]
 		pvalue := trimmedTokens[x+1]
-		p := param{Name: pname, Value: pvalue}
+		p := Param{Name: pname, Value: pvalue}
 		params = append(params, p)
 	}
 
