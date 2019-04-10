@@ -1,0 +1,7 @@
+name1|value1
+name2|value2
+name3|value ```with \| in it3
+ nam4 | value 4 aosma
+ sutouasd a |```
+name4 | value 4 \| with pipe in it \| twice escaped,
+though5 | v5
